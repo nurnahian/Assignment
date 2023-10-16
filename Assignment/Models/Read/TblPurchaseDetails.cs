@@ -15,10 +15,5 @@ namespace Assignment.Models.Read
         public decimal? NumItemQuantity { get; set; }
         public decimal? NumUnitPrice { get; set; }
         public bool? IsActive { get; set; }
-
-        internal int Sum(Func<object, object> value)
-        {
-            throw new NotImplementedException();
-        }
     }
 }

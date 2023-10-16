@@ -6,11 +6,15 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
+using Microsoft.Extensions.Configuration;
+using Microsoft.IdentityModel.Tokens;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 
 
@@ -21,10 +25,12 @@ namespace Assignment.Repository
     {
         private readonly WriteDbContext _contextW;
         private readonly ReadDbContext _contextR;
-        public AssignmentRepository(WriteDbContext contextW, ReadDbContext contextR)
+        private IConfiguration _config;
+        public AssignmentRepository(WriteDbContext contextW, ReadDbContext contextR,IConfiguration configuration)
         {
             _contextW = contextW;
             _contextR = contextR;
+            _config = configuration;
         }
 
         //1# Create partner type [Customer, Supplier]
@@ -426,8 +432,34 @@ namespace Assignment.Repository
             return DaysReport;
         }
 
+        
+        private string GenerateToken(UserLoginDto users)
+        {
+            var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["Jwt:Key"]));
+            var credential = new SigningCredentials(securityKey,SecurityAlgorithms.HmacSha256);
+            var token = new JwtSecurityToken(_config["Jwt:Issuer"], _config["Jwr:Audience"],null,
+                expires:DateTime.Now.AddMinutes(1),signingCredentials:credential);
+            return new JwtSecurityTokenHandler().WriteToken(token);
+        }
+        public async Task<string> LogIn(UserLoginDto user)
+        {
+            try
+            {
 
+                var isPresent = await _contextR.TblUser.Where(i => i.UserEmail == user.Email.ToLower() && i.UserPass == user.Password).FirstOrDefaultAsync();
+                if (isPresent != null)
+                {
+                    var token = GenerateToken(user);
+                    return $"{new { token = token }}";
+                }
+                return $"{user.Email} is not valid User";
+            }
+            catch (Exception ex)
+            {
 
+                throw;
+            }
+        }
         //public async Task<string> InserDatasheetToDB(List<DtoGlocation> SheetData)
         //{
         //    try

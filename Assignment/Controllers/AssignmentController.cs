@@ -3,6 +3,7 @@ using Assignment.DbContexts;
 using Assignment.DTO;
 using Assignment.IRepository;
 using Assignment.Models.Read;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using Microsoft.EntityFrameworkCore;
@@ -23,7 +24,7 @@ namespace Assignment.Controllers
         {
             _IRepository = IRepository;
         }
-       
+
 
         //public async Task<string> CreatItem(List<TblItemDto> tblitem)
         //{
@@ -31,7 +32,7 @@ namespace Assignment.Controllers
         //}
 
 
-
+        [Authorize]
         //1# Create partner type [Customer, Supplier]
         [HttpPost]
         [Route("CreatePartner")]
@@ -134,15 +135,22 @@ namespace Assignment.Controllers
 
         //10# Find Report with given column
         //      (Monthname, year, total purchase amount, total sales amount, profit/loss status)
+
         [HttpGet]
         [Route("TotalReport")]
-
+        [Authorize]
         public async Task<IActionResult> TotalReport(DateTime monthlyreport)
         {
             var GetMonthlyReport = await _IRepository.TotalReport(monthlyreport);
             return Ok(GetMonthlyReport);
         }
-
+        [AllowAnonymous]
+        [HttpPost]
+        [Route("Login")]
+        public async Task<IActionResult> LogIn(UserLoginDto user)
+        {
+            return Ok(await _IRepository.LogIn(user));
+        }
 
         //[HttpPost]
         //[Route("InserDatasheetToDB")]

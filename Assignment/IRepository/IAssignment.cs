@@ -29,6 +29,7 @@ namespace Assignment.IRepository
       public Task<List<DayPurches>> FindItemMonthly(DateTime months);
       public Task<List<DayPurches>> ItemDailyPurchasVsSalesReport(DateTime days);
       public Task<ReportDto> TotalReport(DateTime monthlyreport);
+      public Task<string> LogIn(UserLoginDto user);
 
     }
 }

@@ -20,7 +20,6 @@ namespace Assignment.DbContexts
         {
         }
 
-        public virtual DbSet<TblGlocation> TblGlocation { get; set; }
         public virtual DbSet<TblItem> TblItem { get; set; }
         public virtual DbSet<TblPartner> TblPartner { get; set; }
         public virtual DbSet<TblPartnerType> TblPartnerType { get; set; }
@@ -28,6 +27,7 @@ namespace Assignment.DbContexts
         public virtual DbSet<TblPurchaseDetails> TblPurchaseDetails { get; set; }
         public virtual DbSet<TblSales> TblSales { get; set; }
         public virtual DbSet<TblSalesDetails> TblSalesDetails { get; set; }
+        public virtual DbSet<TblUser> TblUser { get; set; }
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
@@ -40,38 +40,6 @@ namespace Assignment.DbContexts
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-            modelBuilder.Entity<TblGlocation>(entity =>
-            {
-                entity.HasKey(e => e.IntWorkplaceId)
-                    .HasName("PK__tblGLoca__5F36F7098F52B5EF");
-
-                entity.ToTable("tblGLocation");
-
-                entity.Property(e => e.IntWorkplaceId)
-                    .HasColumnName("intWorkplaceId")
-                    .ValueGeneratedNever();
-
-                entity.Property(e => e.IntId)
-                    .HasColumnName("intId")
-                    .ValueGeneratedOnAdd();
-
-                entity.Property(e => e.StrBusinessUnitName)
-                    .HasColumnName("strBusinessUnitName")
-                    .HasMaxLength(255);
-
-                entity.Property(e => e.StrGoogleLocationName)
-                    .HasColumnName("strGoogleLocationName")
-                    .HasMaxLength(255);
-
-                entity.Property(e => e.StrWorkplace)
-                    .HasColumnName("strWorkplace")
-                    .HasMaxLength(255);
-
-                entity.Property(e => e.StrWorkplaceGroup)
-                    .HasColumnName("strWorkplaceGroup")
-                    .HasMaxLength(255);
-            });
-
             modelBuilder.Entity<TblItem>(entity =>
             {
                 entity.HasKey(e => e.IntItemId)
@@ -211,6 +179,21 @@ namespace Assignment.DbContexts
                 entity.Property(e => e.NumUnitPrice)
                     .HasColumnName("numUnitPrice")
                     .HasColumnType("decimal(10, 2)");
+            });
+
+            modelBuilder.Entity<TblUser>(entity =>
+            {
+                entity.HasNoKey();
+
+                entity.ToTable("tblUser");
+
+                entity.Property(e => e.UserEmail).HasMaxLength(255);
+
+                entity.Property(e => e.UserPass).HasMaxLength(255);
+
+                entity.Property(e => e.UserRole).HasMaxLength(30);
+
+                entity.Property(e => e.Userid).ValueGeneratedOnAdd();
             });
 
             OnModelCreatingPartial(modelBuilder);
