@@ -15,6 +15,7 @@ namespace Assignment.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize(AuthenticationSchemes = Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerDefaults.AuthenticationScheme)]
     public class AssignmentController : ControllerBase
     {
         private readonly IAssignment _IRepository;
@@ -32,7 +33,7 @@ namespace Assignment.Controllers
         //}
 
 
-        [Authorize]
+        
         //1# Create partner type [Customer, Supplier]
         [HttpPost]
         [Route("CreatePartner")]
@@ -138,15 +139,15 @@ namespace Assignment.Controllers
 
         [HttpGet]
         [Route("TotalReport")]
-        [Authorize]
+        [Authorize(Roles ="admin")]
         public async Task<IActionResult> TotalReport(DateTime monthlyreport)
         {
             var GetMonthlyReport = await _IRepository.TotalReport(monthlyreport);
             return Ok(GetMonthlyReport);
         }
-        [AllowAnonymous]
         [HttpPost]
         [Route("Login")]
+        [AllowAnonymous]
         public async Task<IActionResult> LogIn(UserLoginDto user)
         {
             return Ok(await _IRepository.LogIn(user));

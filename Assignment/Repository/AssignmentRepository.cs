@@ -1,7 +1,9 @@
 ﻿using Assignment.DbContexts;
 using Assignment.DTO;
+using Assignment.Helper;
 using Assignment.IRepository;
 using Assignment.Models.Read;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Internal;
@@ -12,8 +14,10 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Data;
 using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
+using System.Security.Claims;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -433,26 +437,46 @@ namespace Assignment.Repository
         }
 
         
-        private string GenerateToken(UserLoginDto users)
+        private string GenerateToken(int UserId, string UserEmail,string UserRole)
         {
             var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["Jwt:Key"]));
             var credential = new SigningCredentials(securityKey,SecurityAlgorithms.HmacSha256);
-            var token = new JwtSecurityToken(_config["Jwt:Issuer"], _config["Jwr:Audience"],null,
-                expires:DateTime.Now.AddMinutes(1),signingCredentials:credential);
+
+            //Claim
+            var claims = new[] {
+                 new Claim(JwtRegisteredClaimNames.Sid, UserId.ToString()),
+                 new Claim(JwtRegisteredClaimNames.Email, UserEmail),
+                 new Claim(ClaimTypes.Role,UserRole),
+            };
+
+            var token = new JwtSecurityToken(_config["Jwt:Issuer"], _config["Jwt:Audience"],
+                claims,
+                expires:DateTime.Now.AddMinutes(.30),
+                signingCredentials:credential);
             return new JwtSecurityTokenHandler().WriteToken(token);
+
         }
-        public async Task<string> LogIn(UserLoginDto user)
+        public async Task<UserTokenDto> LogIn(UserLoginDto user)
         {
+            
             try
             {
+                UserTokenDto mess = new UserTokenDto();
+                mess.IsSuccess = false;
+                mess.Message = "Invalid";
 
-                var isPresent = await _contextR.TblUser.Where(i => i.UserEmail == user.Email.ToLower() && i.UserPass == user.Password).FirstOrDefaultAsync();
+                var isPresent = await _contextR.TblUser.Where(i => i.UserEmail == user.Email.ToLower() && i.UserPass == user.Password && i.UserRole != null).FirstOrDefaultAsync();
                 if (isPresent != null)
                 {
-                    var token = GenerateToken(user);
-                    return $"{new { token = token }}";
+                    var token = GenerateToken(isPresent.Userid,isPresent.UserEmail,isPresent.UserRole);
+
+                    mess.IsSuccess = true;
+                    mess.Message = "Loging Successful";
+                    mess.Token = token;
+                    return mess;
                 }
-                return $"{user.Email} is not valid User";
+               
+                return mess;
             }
             catch (Exception ex)
             {
