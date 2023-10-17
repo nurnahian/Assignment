@@ -35,7 +35,10 @@ namespace Assignment
         public void ConfigureServices(IServiceCollection services)
         {
             ConfigureSwagger(services);
-            services.AddControllers();
+            services.AddControllers().AddJsonOptions(options =>
+            {
+                options.JsonSerializerOptions.PropertyNamingPolicy = null;
+            }); 
             services.AddTransient<IAssignment, AssignmentRepository>();
             services.AddDbContext<ReadDbContext>(option => option.UseSqlServer(Configuration.GetConnectionString("DefaultConnection")));
             services.AddDbContext<WriteDbContext>(option => option.UseSqlServer(Configuration.GetConnectionString("DefaultConnection")));
@@ -47,7 +50,9 @@ namespace Assignment
                 options.TokenValidationParameters = new TokenValidationParameters()
                 {
                     ValidateIssuer = true,
+                    ValidateLifetime = true,
                     ValidateAudience = true,
+                    ClockSkew = TimeSpan.Zero,
                     ValidAudience = Configuration["Jwt:Audience"],
                     ValidIssuer = Configuration["Jwt:Issuer"],
                     IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(Configuration["Jwt:Key"]))

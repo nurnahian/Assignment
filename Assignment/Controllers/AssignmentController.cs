@@ -4,11 +4,15 @@ using Assignment.DTO;
 using Assignment.IRepository;
 using Assignment.Models.Read;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 
 namespace Assignment.Controllers
@@ -20,7 +24,8 @@ namespace Assignment.Controllers
     {
         private readonly IAssignment _IRepository;
 
-        private readonly ReadDbContext _context;
+        
+
         public AssignmentController(IAssignment IRepository)
         {
             _IRepository = IRepository;
@@ -142,7 +147,9 @@ namespace Assignment.Controllers
         [Authorize(Roles ="admin")]
         public async Task<IActionResult> TotalReport(DateTime monthlyreport)
         {
+
             var GetMonthlyReport = await _IRepository.TotalReport(monthlyreport);
+
             return Ok(GetMonthlyReport);
         }
         [HttpPost]
@@ -150,7 +157,16 @@ namespace Assignment.Controllers
         [AllowAnonymous]
         public async Task<IActionResult> LogIn(UserLoginDto user)
         {
+
             return Ok(await _IRepository.LogIn(user));
+        }
+        [HttpPost]
+        [Route("dataCheck")]
+        [AllowAnonymous]
+        public async Task<IActionResult> dataCheck(string data)
+        {
+
+            return Ok(await _IRepository.dataCheck(data));
         }
 
         //[HttpPost]

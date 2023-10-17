@@ -3,6 +3,7 @@ using Assignment.DTO;
 using Assignment.Helper;
 using Assignment.IRepository;
 using Assignment.Models.Read;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -10,6 +11,7 @@ using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
+using Newtonsoft.Json;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -20,6 +22,7 @@ using System.Linq;
 using System.Security.Claims;
 using System.Text;
 using System.Threading.Tasks;
+using System.Xml.Linq;
 
 
 #pragma warning disable
@@ -30,11 +33,14 @@ namespace Assignment.Repository
         private readonly WriteDbContext _contextW;
         private readonly ReadDbContext _contextR;
         private IConfiguration _config;
-        public AssignmentRepository(WriteDbContext contextW, ReadDbContext contextR,IConfiguration configuration)
+        private readonly IDataProtector _dataProtector;
+        public AssignmentRepository(WriteDbContext contextW, ReadDbContext contextR,IConfiguration configuration, IDataProtectionProvider dataProvider)
         {
             _contextW = contextW;
             _contextR = contextR;
             _config = configuration;
+            string jwtKey = configuration["Jwt:Key"];
+            _dataProtector = dataProvider.CreateProtector(jwtKey);
         }
 
         //1# Create partner type [Customer, Supplier]
@@ -375,7 +381,7 @@ namespace Assignment.Repository
         //      (Monthname, year, total purchase amount, total sales amount, profit/loss status)
 
 
-        public async Task<ReportDto> TotalReport(DateTime monthlyreport)
+        public async Task<string> TotalReport(DateTime monthlyreport)
         {
             var months = monthlyreport.Date.Month;
 
@@ -432,11 +438,13 @@ namespace Assignment.Repository
                 TotalSalesAmount = TotalSalesItemSum,
                 ProfitLoss = ProfitOrLoss
             };
-                              
-            return DaysReport;
+
+            string jsonString = JsonConvert.SerializeObject(DaysReport);
+            string encript = _dataProtector.Protect(jsonString);
+            return encript;
         }
 
-        
+        //Token Generator
         private string GenerateToken(int UserId, string UserEmail,string UserRole)
         {
             var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["Jwt:Key"]));
@@ -451,19 +459,21 @@ namespace Assignment.Repository
 
             var token = new JwtSecurityToken(_config["Jwt:Issuer"], _config["Jwt:Audience"],
                 claims,
-                expires:DateTime.Now.AddMinutes(.30),
+                expires:DateTime.Now.AddMinutes(3),
                 signingCredentials:credential);
             return new JwtSecurityTokenHandler().WriteToken(token);
 
         }
         public async Task<UserTokenDto> LogIn(UserLoginDto user)
         {
-            
+            UserTokenDto mess = new UserTokenDto();
+            mess.IsSuccess = false;
+            mess.Message = "Invalid";
+
             try
             {
-                UserTokenDto mess = new UserTokenDto();
-                mess.IsSuccess = false;
-                mess.Message = "Invalid";
+                
+                
 
                 var isPresent = await _contextR.TblUser.Where(i => i.UserEmail == user.Email.ToLower() && i.UserPass == user.Password && i.UserRole != null).FirstOrDefaultAsync();
                 if (isPresent != null)
@@ -472,7 +482,13 @@ namespace Assignment.Repository
 
                     mess.IsSuccess = true;
                     mess.Message = "Loging Successful";
-                    mess.Token = token;
+                    mess.TokenDate = DateTime.Now.ToString("yyyy-MM-dd h:mm:ss tt");
+                    mess.UserId=isPresent.Userid;
+                    mess.UserEmail = isPresent.UserEmail;
+                    mess.Role = isPresent.UserRole;
+                    mess.Token=token;
+                    
+
                     return mess;
                 }
                
@@ -484,94 +500,102 @@ namespace Assignment.Repository
                 throw;
             }
         }
-        //public async Task<string> InserDatasheetToDB(List<DtoGlocation> SheetData)
-        //{
-        //    try
-        //    {
-        //        foreach (var item in SheetData)
-        //        {
-        //            var itemSave = new Models.Write.TblGlocation()
-        //            {
-        //                    IntWorkplaceId = item.IntWorkplaceId,
-        //                    StrWorkplace=item.StrWorkplace,
-        //                    StrWorkplaceGroup=item.StrWorkplaceGroup,
-        //                    StrBusinessUnitName=item.StrBusinessUnitName,
-        //                    StrGoogleLocationName=item.StrGoogleLocationName
-        //            };
-        //             _contextW.TblGlocation.Add(itemSave);
-        //             await _contextW.SaveChangesAsync();
-        //        }
-
-        //        return "Successfull";
-        //    }
-        //    catch (Exception ex)
-        //    {
-
-        //        throw new Exception("Not Valid Data");
-        //    }
-
-        //}
 
 
 
+        public async Task<string> dataCheck(string data)
+        {
+            var decriptdata = _dataProtector.Unprotect(data);
+            return decriptdata;
+        }
+/*        public async task<string> inserdatasheettodb(list<dtoglocation> sheetdata)
+        {
+            try
+            {
+                foreach (var item in sheetdata)
+                {
+                    var itemsave = new models.write.tblglocation()
+                    {
+                        intworkplaceid = item.intworkplaceid,
+                        strworkplace = item.strworkplace,
+                        strworkplacegroup = item.strworkplacegroup,
+                        strbusinessunitname = item.strbusinessunitname,
+                        strgooglelocationname = item.strgooglelocationname
+                    };
+                    _contextw.tblglocation.add(itemsave);
+                    await _contextw.savechangesasync();
+                }
 
-        //public async Task<List<TblItemDto>> GetItem()
-        //{
+                return "successfull";
+            }
+            catch (exception ex)
+            {
 
-        //    var item = await _contextR.TblItem.Select(x => new TblItemDto()
-        //        {
-        //            IntItemId = x.IntItemId,
-        //            StrItemName = x.StrItemName ,
-        //            NumStockQuantity = x.NumStockQuantity,
-        //            IsActive = x.IsActive
-        //        }).ToListAsync();
-        //    return item;
-        //}
-        //public bool CreateItem(TblItemDto ItemDto)
-        //{
+                throw new exception("not valid data");
+            }
+
+        }
 
 
-        //    var item =  new Models.Write.TblItem()
-        //    {
-        //        IntItemId = ItemDto.IntItemId,
-        //        StrItemName = ItemDto.StrItemName ,
-        //        NumStockQuantity = ItemDto.NumStockQuantity,
-        //        IsActive = ItemDto.IsActive,
-        //    };
-        //            _contextW.TblItem.Add(item);
 
-        //    return _contextW.SaveChanges()>0;
 
-        //}
-        //public bool ItemIsExist(int IntItemId)
-        //{
-        //    return _contextR.TblItem.Any(e=>e.IntItemId == IntItemId);
-        //}
-        //public async Task<string> CreateItem(List<TblItemDto> tblitem)
-        //{
+        public async task<list<tblitemdto>> getitem()
+        {
 
-        //   foreach (var item in tblitem)
-        //    {
-        //        var isItem = await _contextR.TblItem.Where(n=>n.StrItemName == item.StrItemName).ToListAsync();
-        //        if(isItem==null)
-        //        {
-        //            return "Alredy Exist";
+            var item = await _contextr.tblitem.select(x => new tblitemdto()
+            {
+                intitemid = x.intitemid,
+                stritemname = x.stritemname,
+                numstockquantity = x.numstockquantity,
+                isactive = x.isactive
+            }).tolistasync();
+            return item;
+        }
+        public bool createitem(tblitemdto itemdto)
+        {
 
-        //        }
-        //        else
-        //        {
-        //            var itemSave = new Models.Write.TblItem()
-        //            {
-        //                IntItemId = item.IntItemId,
-        //                StrItemName = item.StrItemName,
-        //                NumStockQuantity = item.NumStockQuantity,
-        //                IsActive = item.IsActive
-        //            };
-        //            _contextW.TblItem.Add(itemSave);
-        //            await _contextW.SaveChangesAsync();
-        //        }
-        //    }
-        //    return "Succesfully Save!!!!";
-        //}
+
+            var item = new models.write.tblitem()
+            {
+                intitemid = itemdto.intitemid,
+                stritemname = itemdto.stritemname,
+                numstockquantity = itemdto.numstockquantity,
+                isactive = itemdto.isactive,
+            };
+            _contextw.tblitem.add(item);
+
+            return _contextw.savechanges() > 0;
+
+        }
+        public bool itemisexist(int intitemid)
+        {
+            return _contextr.tblitem.any(e => e.intitemid == intitemid);
+        }
+        public async task<string> createitem(list<tblitemdto> tblitem)
+        {
+
+            foreach (var item in tblitem)
+            {
+                var isitem = await _contextr.tblitem.where(n => n.stritemname == item.stritemname).tolistasync();
+                if (isitem == null)
+                {
+                    return "alredy exist";
+
+                }
+                else
+                {
+                    var itemsave = new models.write.tblitem()
+                    {
+                        intitemid = item.intitemid,
+                        stritemname = item.stritemname,
+                        numstockquantity = item.numstockquantity,
+                        isactive = item.isactive
+                    };
+                    _contextw.tblitem.add(itemsave);
+                    await _contextw.savechangesasync();
+                }
+            }
+            return "succesfully save!!!!";
+        }*/
     }
 }

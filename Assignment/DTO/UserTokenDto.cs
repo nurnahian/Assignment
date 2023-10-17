@@ -1,4 +1,6 @@
 ﻿using Microsoft.AspNetCore.Identity;
+using Microsoft.VisualBasic;
+using System.Collections.Generic;
 
 namespace Assignment.DTO
 {
@@ -6,15 +8,14 @@ namespace Assignment.DTO
     {
         public bool IsSuccess { get; set; }
         public string Message { get; set; }
-        public UserLogInfo Data {  get; set; }
-        public string? Token {  get; set; }
+        public string TokenDate { get; set; }
+        public int UserId { get; set; }
+        public string UserEmail { get; set; }
+        public string Role { get; set; }
+        public string Token {  get; set; }
+
 
     }
-    public class UserLogInfo
-    {
-        public string UserId { get; set; }
-        public string UserEmail {  get; set; }
-        public string Role { get; set; }
-    }
+    
 
 }
