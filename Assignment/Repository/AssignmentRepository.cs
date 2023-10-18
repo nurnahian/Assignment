@@ -19,7 +19,10 @@ using System.ComponentModel;
 using System.Data;
 using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
+using System.Net;
+using System.Net.Mail;
 using System.Security.Claims;
+using System.Security.Principal;
 using System.Text;
 using System.Threading.Tasks;
 using System.Xml.Linq;
@@ -385,17 +388,32 @@ namespace Assignment.Repository
         {
             var months = monthlyreport.Date.Month;
 
-            var PurchesdaysItems = (from i in _contextR.TblItem
-                                          join pd in _contextR.TblPurchaseDetails on i.IntItemId equals pd.IntItemId into gt
-                                          from d in gt.DefaultIfEmpty()
-                                          join p in _contextR.TblPurchase on d.IntPurchaseId equals p.IntPurchaseId into gt1
-                                          from g in gt1.DefaultIfEmpty()
-                                          where g.DtePurchaseDate.Value.Month == months
-                                          select new 
-                                          {
-                                              TotalPurchesAmount = (decimal)(d.NumItemQuantity*d.NumUnitPrice)
-                                          }).ToList();
-                                          
+            //var PurchesdaysItems = (from i in _contextR.TblItem
+            //                              join pd in _contextR.TblPurchaseDetails on i.IntItemId equals pd.IntItemId into gt
+            //                              from d in gt.DefaultIfEmpty()
+            //                              join p in _contextR.TblPurchase on d.IntPurchaseId equals p.IntPurchaseId into gt1
+            //                              from g in gt1.DefaultIfEmpty()
+            //                              where g.DtePurchaseDate.Value.Month == months
+            //                              select new 
+            //                              {
+            //                                  TotalPurchesAmount = (decimal)(d.NumItemQuantity*d.NumUnitPrice)
+            //                              }).ToList();
+
+            var query = (from i in _contextR.TblPurchase
+                                 join pd in _contextR.TblPurchaseDetails on i.IntPurchaseId equals pd.IntPurchaseId
+                                 where i.DtePurchaseDate.Value.Month == monthlyreport.Month
+                                 group pd by pd.IntItemId into ngt3
+                                 select new
+                                 {
+                                     itemSum = (decimal)(ngt3.Sum(x => x.NumItemQuantity??0 * x.NumUnitPrice ?? 0))
+                                 }).Select(i=>i.itemSum).Sum();
+                     
+
+                        //var totalPrice = query.FirstOrDefault()?.TotalPrice;
+
+
+
+
             var SalesdaysItems = (from i in _contextR.TblItem
                                         join pd in _contextR.TblSalesDetails on i.IntItemId equals pd.IntItemId into gt
                                         from d in gt.DefaultIfEmpty()
@@ -410,7 +428,7 @@ namespace Assignment.Repository
 
 
 
-            var TotalPuchesItemSum = PurchesdaysItems.Select(x => x.TotalPurchesAmount).Sum();
+            var TotalPuchesItemSum = query;//.Select(x => x.itemSum).Sum();
             var TotalSalesItemSum = SalesdaysItems.Select(x=>x.TotalSalesAmount).Sum();
             
             //decimal TotalPuchesItemSum = 0;
@@ -454,12 +472,14 @@ namespace Assignment.Repository
             var claims = new[] {
                  new Claim(JwtRegisteredClaimNames.Sid, UserId.ToString()),
                  new Claim(JwtRegisteredClaimNames.Email, UserEmail),
+                 new Claim(JwtRegisteredClaimNames.Iat,DateTime.UtcNow.ToString()),
+                 new Claim("Userid",UserId.ToString()),
                  new Claim(ClaimTypes.Role,UserRole),
             };
 
             var token = new JwtSecurityToken(_config["Jwt:Issuer"], _config["Jwt:Audience"],
                 claims,
-                expires:DateTime.Now.AddMinutes(3),
+                expires:DateTime.UtcNow.AddMinutes(3),
                 signingCredentials:credential);
             return new JwtSecurityTokenHandler().WriteToken(token);
 
@@ -481,8 +501,7 @@ namespace Assignment.Repository
                     var token = GenerateToken(isPresent.Userid,isPresent.UserEmail,isPresent.UserRole);
 
                     mess.IsSuccess = true;
-                    mess.Message = "Loging Successful";
-                    mess.TokenDate = DateTime.Now.ToString("yyyy-MM-dd h:mm:ss tt");
+                    mess.Message = "Loging Successful";                 
                     mess.UserId=isPresent.Userid;
                     mess.UserEmail = isPresent.UserEmail;
                     mess.Role = isPresent.UserRole;
@@ -501,101 +520,153 @@ namespace Assignment.Repository
             }
         }
 
+        public async Task<bool> CheckTimeExpire(ClaimsIdentity UserIdentity)
+        {
+            if (UserIdentity!=null)
+            {
+                var expClaim = UserIdentity.FindFirst("exp");
+                if (expClaim != null && long.TryParse(expClaim.Value, out var expiresTime))
+                {
+                    // Convert the Unix timestamp to a DateTime
+                    var expirationDateTime = DateTimeOffset.FromUnixTimeSeconds(expiresTime).DateTime;
+                    var currentTime = DateTime.UtcNow;
 
+                    if (currentTime < expirationDateTime)
+                    {
+                        return true;
+                    }else{
+                        
+                        return false;
+                    }
+                }else{
+                    return false;
+                }
+            }
+
+            return false;
+        
+        }
 
         public async Task<string> dataCheck(string data)
         {
             var decriptdata = _dataProtector.Unprotect(data);
             return decriptdata;
         }
-/*        public async task<string> inserdatasheettodb(list<dtoglocation> sheetdata)
-        {
-            try
-            {
-                foreach (var item in sheetdata)
+
+
+        //Send email
+        //public void SendVerificationEmail(string to, string verificationLink)
+        //{
+        //    var smtpServer = _config["EmailSettings:SmtpServer"];
+        //    var smtpPort = int.Parse(_config["EmailSettings:SmtpPort"]);
+        //    var username = _config["EmailSettings:Username"];
+        //    var password = _config["EmailSettings:Password"];
+
+        //    using (var client = new SmtpClient(smtpServer, smtpPort))
+        //    {
+        //        client.Credentials = new NetworkCredential(username, password);
+        //        client.EnableSsl = true;
+
+        //        var message = new MailMessage(username, to)
+        //        {
+        //            Subject = "Verify Your Email",
+        //            Body = $"Click the following link to verify your email: {verificationLink}",
+        //            IsBodyHtml = true
+        //        };
+
+        //        client.Send(message);
+        //    }
+        //}
+
+
+        /*        public async task<string> inserdatasheettodb(list<dtoglocation> sheetdata)
                 {
-                    var itemsave = new models.write.tblglocation()
+                    try
                     {
-                        intworkplaceid = item.intworkplaceid,
-                        strworkplace = item.strworkplace,
-                        strworkplacegroup = item.strworkplacegroup,
-                        strbusinessunitname = item.strbusinessunitname,
-                        strgooglelocationname = item.strgooglelocationname
-                    };
-                    _contextw.tblglocation.add(itemsave);
-                    await _contextw.savechangesasync();
-                }
+                        foreach (var item in sheetdata)
+                        {
+                            var itemsave = new models.write.tblglocation()
+                            {
+                                intworkplaceid = item.intworkplaceid,
+                                strworkplace = item.strworkplace,
+                                strworkplacegroup = item.strworkplacegroup,
+                                strbusinessunitname = item.strbusinessunitname,
+                                strgooglelocationname = item.strgooglelocationname
+                            };
+                            _contextw.tblglocation.add(itemsave);
+                            await _contextw.savechangesasync();
+                        }
 
-                return "successfull";
-            }
-            catch (exception ex)
-            {
-
-                throw new exception("not valid data");
-            }
-
-        }
-
-
-
-
-        public async task<list<tblitemdto>> getitem()
-        {
-
-            var item = await _contextr.tblitem.select(x => new tblitemdto()
-            {
-                intitemid = x.intitemid,
-                stritemname = x.stritemname,
-                numstockquantity = x.numstockquantity,
-                isactive = x.isactive
-            }).tolistasync();
-            return item;
-        }
-        public bool createitem(tblitemdto itemdto)
-        {
-
-
-            var item = new models.write.tblitem()
-            {
-                intitemid = itemdto.intitemid,
-                stritemname = itemdto.stritemname,
-                numstockquantity = itemdto.numstockquantity,
-                isactive = itemdto.isactive,
-            };
-            _contextw.tblitem.add(item);
-
-            return _contextw.savechanges() > 0;
-
-        }
-        public bool itemisexist(int intitemid)
-        {
-            return _contextr.tblitem.any(e => e.intitemid == intitemid);
-        }
-        public async task<string> createitem(list<tblitemdto> tblitem)
-        {
-
-            foreach (var item in tblitem)
-            {
-                var isitem = await _contextr.tblitem.where(n => n.stritemname == item.stritemname).tolistasync();
-                if (isitem == null)
-                {
-                    return "alredy exist";
-
-                }
-                else
-                {
-                    var itemsave = new models.write.tblitem()
+                        return "successfull";
+                    }
+                    catch (exception ex)
                     {
-                        intitemid = item.intitemid,
-                        stritemname = item.stritemname,
-                        numstockquantity = item.numstockquantity,
-                        isactive = item.isactive
-                    };
-                    _contextw.tblitem.add(itemsave);
-                    await _contextw.savechangesasync();
+
+                        throw new exception("not valid data");
+                    }
+
                 }
-            }
-            return "succesfully save!!!!";
-        }*/
+
+
+
+
+                public async task<list<tblitemdto>> getitem()
+                {
+
+                    var item = await _contextr.tblitem.select(x => new tblitemdto()
+                    {
+                        intitemid = x.intitemid,
+                        stritemname = x.stritemname,
+                        numstockquantity = x.numstockquantity,
+                        isactive = x.isactive
+                    }).tolistasync();
+                    return item;
+                }
+                public bool createitem(tblitemdto itemdto)
+                {
+
+
+                    var item = new models.write.tblitem()
+                    {
+                        intitemid = itemdto.intitemid,
+                        stritemname = itemdto.stritemname,
+                        numstockquantity = itemdto.numstockquantity,
+                        isactive = itemdto.isactive,
+                    };
+                    _contextw.tblitem.add(item);
+
+                    return _contextw.savechanges() > 0;
+
+                }
+                public bool itemisexist(int intitemid)
+                {
+                    return _contextr.tblitem.any(e => e.intitemid == intitemid);
+                }
+                public async task<string> createitem(list<tblitemdto> tblitem)
+                {
+
+                    foreach (var item in tblitem)
+                    {
+                        var isitem = await _contextr.tblitem.where(n => n.stritemname == item.stritemname).tolistasync();
+                        if (isitem == null)
+                        {
+                            return "alredy exist";
+
+                        }
+                        else
+                        {
+                            var itemsave = new models.write.tblitem()
+                            {
+                                intitemid = item.intitemid,
+                                stritemname = item.stritemname,
+                                numstockquantity = item.numstockquantity,
+                                isactive = item.isactive
+                            };
+                            _contextw.tblitem.add(itemsave);
+                            await _contextw.savechangesasync();
+                        }
+                    }
+                    return "succesfully save!!!!";
+                }*/
     }
 }

@@ -12,6 +12,7 @@ using Microsoft.Extensions.Configuration;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.Security.Claims;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 
@@ -144,7 +145,8 @@ namespace Assignment.Controllers
 
         [HttpGet]
         [Route("TotalReport")]
-        [Authorize(Roles ="admin")]
+        //[Authorize(Roles ="admin")]
+        [AllowAnonymous]
         public async Task<IActionResult> TotalReport(DateTime monthlyreport)
         {
 
@@ -165,8 +167,12 @@ namespace Assignment.Controllers
         [AllowAnonymous]
         public async Task<IActionResult> dataCheck(string data)
         {
+            if(await _IRepository.CheckTimeExpire(User.Identity as ClaimsIdentity))
+            {
+                return Ok(await _IRepository.dataCheck(data));
+            }
 
-            return Ok(await _IRepository.dataCheck(data));
+            return BadRequest("User not authenticated");
         }
 
         //[HttpPost]

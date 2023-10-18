@@ -6,6 +6,8 @@ using System.Linq;
 using System.Threading.Tasks;
 using Assignment.DTO;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
+using System.Security.Principal;
 
 namespace Assignment.IRepository
 {
@@ -30,6 +32,7 @@ namespace Assignment.IRepository
       public Task<List<DayPurches>> ItemDailyPurchasVsSalesReport(DateTime days);
       public Task<string> TotalReport(DateTime monthlyreport);
       public Task<UserTokenDto> LogIn(UserLoginDto user);
+      public Task<bool> CheckTimeExpire(  ClaimsIdentity UserIdentity);
       public Task<string> dataCheck(string data);
 
     }
